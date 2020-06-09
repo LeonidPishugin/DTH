@@ -1,0 +1,6 @@
+`include "DTH_params.v"
+`include "DTH.v"
+`include "bcd.v"
+`include "dynamic_indicator.v"
+`include "TOP.v"
+`include "TOP_TB.v"

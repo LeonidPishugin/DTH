@@ -1,197 +1,210 @@
-`timescale 1ns / 1ps
-
 module DTH(
-      inout    DTH,
-		input 	clk,
-		input	   rst
+  inout         DTH,
+  input         clk,
+  input         rst,
+  input         start,
+  output        error,
+  output [39:0] DTH_data,
+  output        DHT_data_ready
+);
 
-    );
+  localparam FSM_STATE_NUM = 9;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_IDLE                = 1'b1 << 0;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_START_REQ_DOWN      = 1'b1 << 1;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_START_REQ_UP        = 1'b1 << 2;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_START_RESP_DOWN     = 1'b1 << 3;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_START_RESP_UP       = 1'b1 << 4;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_DATA_TRANSMIT_DOWN  = 1'b1 << 5;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_DATA_TRANSMIT_UP    = 1'b1 << 6;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_DONE                = 1'b1 << 7;
+  localparam [FSM_STATE_NUM-1 : 0] FSM_ERROR               = 1'b1 << 8; // REVIEW: unused!!!
 
-    localparam fsm_state_num =6;
-    localparam [fsm_state_num-1 : 0] startup = 1'b1 <<0;
-    localparam [fsm_state_num-1 : 0] transfer = 1'b1 <<1;
-	 localparam [fsm_state_num-1 : 0] prepare = 1'b1 <<2;
-    localparam [fsm_state_num-1 : 0] receive = 1'b1 <<3;
-	 localparam [fsm_state_num-1 : 0] final = 1'b1 <<4;
-    localparam [fsm_state_num-1 : 0] error = 1'b1 <<5;  
-    
-       reg         [fsm_state_num-1 : 0]       state;
-       reg         [39:0]      dth_data;
-       reg                     buss_volt;
-       reg         [20:0]      timing;
-       reg         [28:0]      global_timing;
-		 reg							 flag;
-       reg         [5:0]       cnt;
-       reg         [9:0]       sum;
-  //     reg                     btn;  
-       
-    assign 		DTH = buss_volt;   
-    
-    always @ (posedge clk or negedge rst) begin
-    
-        if (~rst) begin
-            dth_data <= {40{1'b0}};
-            buss_volt =1;
-            timing <=0;
-            global_timing <=0;
-            state <= startup;
-				flag<=0;
-            cnt <=0;
-      //      btn <=0;
+  localparam [20:0] TIME_CNTR_RESET = {21{1'b0}};
+
+  reg                       dth_we;
+  wire                      dht_data_i;
+  reg                       dht_data_o;
+
+  reg                [20:0] time_cntr_next;
+  reg                [20:0] time_cntr;
+
+  reg                       data_bit_next;
+  reg                       data_bit_end;
+  reg                       dth_data_ready;
+
+  reg [FSM_STATE_NUM-1 : 0] state_next;
+  reg [FSM_STATE_NUM-1 : 0] state;
+  wire               [39:0] dth_data_next;
+  reg                [39:0] dth_data;
+  wire                [5:0] bit_cntr_next;
+  reg                 [5:0] bit_cntr;
+  
+  wire                [7:0] error_next;
+  reg                 [7:0] error_reg;
+  wire                [7:0] sum;
+
+
+
+  // If DTH Write Enable is 1, we drive data, otherwise pull up and read
+  assign DTH = dth_we ? dht_data_o : 1'bz;
+  assign dht_data_i = DTH;
+
+  always @(posedge clk or negedge rst)
+    // If we use ~rst, then it's rst_n meaning when it's negative (0) we reset
+    if (~rst) begin
+      state <= FSM_IDLE;
+    end else begin
+      state <= state_next;
+    end
+
+  always @(posedge clk or negedge rst)
+    if (~rst)
+      time_cntr <= TIME_CNTR_RESET;
+    else
+      time_cntr <= time_cntr_next;
+
+
+  always @* begin
+    // To prevent latches we define default values for all signals
+    time_cntr_next = TIME_CNTR_RESET;
+    dth_we         = 1'b1;
+    dht_data_o     = 1'b1;
+    data_bit_end   = 1'b0;
+    data_bit_next  = 1'b0;
+    dth_data_ready = 1'b0;
+
+    case (state)
+      // In IDLE state, line is up and nothing happens
+      FSM_IDLE : begin
+        dth_we     = 1'b1;
+        dht_data_o = 1'b1;
+        state_next = start ? FSM_START_REQ_DOWN : FSM_IDLE;
+      end
+      // Send out "start" signal and pull down voltage for at least 18ms to let
+      // DHT11 detect the signal
+      FSM_START_REQ_DOWN : begin
+        dth_we         = 1'b1;
+        dht_data_o     = 1'b0;
+        time_cntr_next = time_cntr + 1'b1;
+        if (time_cntr == 21'd1800000) begin
+          time_cntr_next = TIME_CNTR_RESET;
+          state_next     = FSM_START_REQ_UP;
+        end else begin
+          time_cntr_next = time_cntr + 1'b1;
+          state_next     = FSM_START_REQ_DOWN;
         end
+      end
+      // Pull up signal and wait 20-40us for DHT11 before freeing the line
+      FSM_START_REQ_UP : begin
+        dth_we         = 1'b1;
+        dht_data_o     = 1'b1;
+        // 30us is between 20 and 40
+        if (time_cntr > 21'd3000) begin
+          time_cntr_next = TIME_CNTR_RESET;
+          state_next     = FSM_START_RESP_DOWN;
+        end else begin
+          time_cntr_next = time_cntr + 1'b1;
+          state_next     = FSM_START_REQ_UP;
+        end
+      end
+      // MCU frees the line and waits for DHT to pull it down for 80us
+      // (approximate)
+      FSM_START_RESP_DOWN : begin
+        dth_we         = 1'b0;
+        dht_data_o     = 1'b1;
+        // If line is down, we increment the counter
+        if (~dht_data_i)
+          time_cntr_next = time_cntr + 1'b1;
+        else
+          time_cntr_next = TIME_CNTR_RESET;
+        // If line was pulled for more than ~80us, we go to next state
+        // otherwise - keep it
+        if (dht_data_i & (time_cntr > 21'd7500))
+          state_next = FSM_START_RESP_UP;
+        else
+          state_next = FSM_START_RESP_DOWN;
+      end
+      FSM_START_RESP_UP : begin
+        dth_we         = 1'b0;
+        dht_data_o     = 1'b1;
+        // If line is up, we increment the counter
+        if (dht_data_i)
+          time_cntr_next = time_cntr + 1'b1;
+        else
+          time_cntr_next = TIME_CNTR_RESET;
+        // If line was pulled for more than ~80us, we go to next state
+        // otherwise - keep it
+        if (~dht_data_i & (time_cntr > 21'd7500))
+          state_next = FSM_DATA_TRANSMIT_DOWN;
+        else
+          state_next = FSM_START_RESP_UP;
+      end
+      FSM_DATA_TRANSMIT_DOWN : begin
+        dth_we         = 1'b0;
+        dht_data_o     = 1'b1;
+        if (dht_data_i & (time_cntr > 21'd5000)) begin
+          time_cntr_next = TIME_CNTR_RESET;
+          state_next     = (bit_cntr == 6'd40) ? FSM_DONE : FSM_DATA_TRANSMIT_UP;
+        end else begin
+          time_cntr_next = time_cntr + 1'b1;
+          state_next     = FSM_DATA_TRANSMIT_DOWN;
+        end
+      end
+      FSM_DATA_TRANSMIT_UP : begin
+        dth_we         = 1'b0;
+        dht_data_o     = 1'b1;
+        // 0 bit
+        if (~dht_data_i & (time_cntr > 21'd2500) & (time_cntr < 21'd2900)) begin
+          time_cntr_next = TIME_CNTR_RESET;
+          state_next     = FSM_DATA_TRANSMIT_DOWN;
+          data_bit_next  = 1'b0;
+          data_bit_end   = 1'b1;
+        // 1 bit
+        end else if (~dht_data_i & (time_cntr > 21'd6900)) begin
+          time_cntr_next = TIME_CNTR_RESET;
+          state_next     = FSM_DATA_TRANSMIT_DOWN;
+          data_bit_next  = 1'b1;
+          data_bit_end   = 1'b1;
+        // Bit transaction is still in progress
+        end else begin
+          time_cntr_next = time_cntr + 1'b1;
+          state_next     = FSM_DATA_TRANSMIT_UP;
+        end
+      end
+      FSM_DONE : begin
+        dth_data_ready = 1'b1;
+        state_next     = FSM_IDLE;
         
-    else begin    
-    global_timing <= global_timing + 1'b1;
-            
-			case (state)
-            
-            startup: begin
-            //   case (btn)
-             //  1'b1: state <= transfer;
-					dth_data <= {40{1'b0}};
-					buss_volt =1;
-					timing <=0;
-					global_timing <=0;
-					flag<=0;
-					cnt <=0;
-               state <= transfer;
-					//  endcase
-               end   
-					
-					
-            transfer: begin
-								case (flag)
-								1'b0: begin
-								  buss_volt =0;
-                          timing <= timing +1'b1;
-								  
-                          if (timing == 21'd1800000) begin 
-                              buss_volt = 1'bz;
-                              timing <=0;
-										flag<=1;
-                              end
-								
-                          end
-                          
-                        1'b1: begin
-                          
-								  timing <= timing+1'b1;
-                         if (buss_volt == 0)  begin //от датчика приходит низкий сигнал
-                              timing <= 0;
-                              state <= prepare;
-                              end
-                         else if (timing > 21'd4100) state <= error;
-                          
-								 end
-                         endcase
-								  
-                       end
+      end
+    endcase
+  end
 
 
+  assign dth_data_next = dth_data | ({{39{1'b0}}, data_bit_next} << bit_cntr);
+  always @(posedge clk or negedge rst)
+    if (~rst) begin
+      dth_data <= {40{1'b0}};
+    end else if (data_bit_end) begin
+      dth_data <= dth_data_next;
+    end
 
-				  prepare: begin
-								case (flag)
-								1'b1: begin
-									timing <= timing + 1'b1;
-									if (buss_volt == 1) begin
-											timing <=0;
-											flag <=0;
-											end
-										end	
-								1'b0: begin
-									timing <= timing + 1'b1;
-									if(buss_volt == 0) begin
-											timing <=0;
-											state <= receive;
-											end
-									else if ((buss_volt == 1) & (timing > 21'd8100)) state <= error;		
-										end
-								endcase
-								end
+  assign bit_cntr_next = (state == FSM_IDLE) ? {6{1'b0}} : (bit_cntr + 1'b1);
+  always @(posedge clk or negedge rst)
+    if (~rst)
+      bit_cntr <= {6{1'b0}};
+    else if (data_bit_end | (state == FSM_IDLE))
+      bit_cntr <= bit_cntr_next;
 
+  assign sum = dth_data[39 : 32] + dth_data[31:24] + dth_data[23:16] + dth_data[15:8];
+  always @(posedge clk or negedge rst) 
+      if (~rst)
+          error_reg <= 8'h0;
+      else if (state == FSM_DONE)
+          error_reg <= error_next; 
 
+  assign DHT_data_ready = dth_data_ready;
+  assign DTH_data       = {40{(state == FSM_DONE)}} & dth_data;
+  assign error          = error_reg;
+  assign error_next     = (sum != dth_data[7:0]);        
 
-								
-				  receive: begin
-                        
-                           if (buss_volt == 1) begin
-                              timing <= timing + 1'b1; end
-										
-										if (buss_volt == 0) begin
-											
-												if (timing == 21'd7000) begin
-													dth_data[39-cnt] <=1;
-													cnt <= cnt + 1'b1;
-													end
-													
-												else if ((timing > 21'd2600) & (timing < 21'd2800)) begin
-													dth_data[39-cnt] <= 0;
-													cnt <= cnt + 1'b1;
-													end
-												else if (timing > 21'd7000) 
-													state <= error;
-													
-										timing <= 0;
-											
-										end
-									
-									
-                                                      
-									if (cnt == 6'd40) state <= final;
-									
-								end
-								
-
-
-					final: begin
-					
-							sum <= dth_data[39:32] + dth_data[31:24] + dth_data[23:16] + dth_data[15:8];
-										
-									if (sum[7:0] != dth_data[7:0]) 
-											state <= error;
-									else if (buss_volt == 1) 
-											state <=startup;
-										
-																	
-	
-                     end   
-
-
-					error: state <= startup;
-					
-					
-            endcase					
-                   
-            //   if (global_timing >> 100000000) btn <= 0;
-               //else 
-               if (global_timing >> 29'd500000000) state <= transfer;   
-					
-    end 
-	 
-
-	 
-    end 
-    
 endmodule
-
-
-
-
-
-
-
-
-       
-                
-
-                       
-							  
-
-				  
-				  
-				  
-
-
-
-
-            
