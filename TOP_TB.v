@@ -1,276 +1,124 @@
 `timescale 1ns / 1ps
 
 module TOP_TB;
+  reg         clk;
+  reg         rst;
+  wire        DTH;
+  reg         button;
+  reg         sw_h_t_select;
+  wire        error;
+  wire  [6:0] led_7seg_o;
+  wire  [3:0] anode_o;
 
-	//Inputs
-	reg	clk;
-	reg	rst;
-	reg [39:0] dth_data;
-	
-	// Outputs
-	wire [3:0] anode_out;
-	wire [6:0] LED_out;
-	reg	[5:0] cnt;
-	reg	[20:0] timing;
-	
-	//bidir
-	wire input_DTH;
-	wire DTH;
-	reg output_DTH;
-	reg output_value_valid;
+  reg           we;
+  wire          DHT_in;
+  reg           DHT_out;
 
-	// Instantiate the Unit Under Test (UUT)
-	TOP uut (
-		.clk(clk),
-		.rst(rst),
-		.dth_data(dth_data),
-		.DTH(DTH),
-		.anode_out(anode_out),
-		.LED_out(LED_out),
-		.cnt(cnt),
-		.timing(timing)
-	);
+  reg           DHT_data_bit;
+  reg     [7:0] DTH_data_checksum;
+  reg    [39:0] DTH_tb_data;
 
-assign input_DTH = DTH;
-assign DTH = (output_value_valid == 1'b1)?output_DTH : 1'bZ;
+  reg     [63:0] time_a;
+  reg     [63:0] time_b;
+  wire    [63:0] time_diff;
 
-	initial begin
-		// Initialize Inputs
-		output_value_valid =1;
-		clk = 0;
-		rst = 1;
-		output_DTH = 1;
-		dth_data = {40{1'b0}};
-		#10;
-		rst = 0;
-		output_DTH = 0;
-		#18000000;
-		output_DTH = 1;
-		#30000;
-		output_DTH = 0;
-		#80000;
-		output_DTH = 1;
-		#80000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#70000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		output_DTH = 0;
-		#50000;
-		output_DTH = 1;
-		#27000;
-		
-		
-		output_DTH = 0;
-		#50000;
-		
-		output_DTH = 1;
-		#1000000000;
-		$finish;
-	end	
-        
-		initial forever
-		#1 clk = ~clk;
 
-	endmodule
+  TOP dut (
+    .clk            (clk),
+    .rst            (rst),
+    .DTH            (DTH),
+    .button         (button),
+    .sw_h_t_select  (sw_h_t_select),
+    .error          (error),
+    .led_7seg_o     (led_7seg_o),
+    .anode_o        (anode_o)
+  );
 
+  assign DTH     = we ? DHT_out : 1'bz;
+  assign DHT_in = DTH;
+
+  assign time_diff = time_b - time_a;
+
+  initial clk = 1'b0;
+  always
+    #5 clk = ~clk;
+
+
+  integer i = 0;
+  initial begin
+    rst           = 1'b0;
+    button        = 1'b0;
+    we            = 1'b0;
+    DHT_out       = 1'b0;
+    sw_h_t_select = 1'b0;
+    repeat(10) @(posedge clk);
+    rst   = 1'b1;
+
+    repeat(10) @(posedge clk);
+    button  = 1'b1;
+    @(posedge clk);
+    button  = 1'b0;
+
+    forever begin
+      wait(~DHT_in);
+      $display("%tps START: MCU pulled down", $time);
+      time_a = $time;
+      wait(DHT_in);
+      time_b = $time;
+      if ((time_diff > 64'd18_000_000_000))
+        $display("%tps START: MCU pulled up in correct time", $time);
+      else
+        $error("START: MCU pulled up in incorrect time");
+
+      repeat(2500) @(posedge clk);
+      $display("%tps START_RESP: DHT takes control of the line", $time);
+      we      = 1'b1;
+      DHT_out = 1'b1;
+      repeat(1500) @(posedge clk);
+      $display("%tps START_RESP: DHT pulls line down", $time);
+      DHT_out = 1'b0;
+      repeat(8000) @(posedge clk);
+      $display("%tps START_RESP: DHT pulls line up", $time);
+      DHT_out = 1'b1;
+      repeat(8000) @(posedge clk);
+
+      $display("%tps TRANSMISSION: DHT starts transmission", $time);
+      DTH_tb_data = {40{1'b0}};
+      for (i = 0; i < 40; i = i + 1) begin
+        if (i == 32)
+          DTH_data_checksum = DTH_tb_data[39 -: 8] + DTH_tb_data[31 -: 8] + DTH_tb_data[23 -: 8] + DTH_tb_data[15 -: 8];
+
+        if (i >= 32)
+          DTH_tb_data = DTH_data_checksum[39-i];
+        else
+          DHT_data_bit = $random;
+
+        DTH_tb_data[i] = DHT_data_bit;
+        $display("%tps TRANSMISSION: data bit %d = %b", $time, i, DHT_data_bit);
+        $display("%tps TRANSMISSION: DHT pulls line down before bit transmission", $time);
+        DHT_out = 1'b0;
+        repeat(5000) @(posedge clk);
+        $display("%tps TRANSMISSION: DHT pulls line up for bit transmission", $time);
+        DHT_out = 1'b1;
+        if (DHT_data_bit) begin
+          repeat(7000) @(posedge clk);
+          $display("%tps TRANSMISSION: DHT keeps line up for 1 bit transmission", $time);
+        end else begin
+          repeat(2650) @(posedge clk);
+          $display("%tps TRANSMISSION: DHT keeps line up for 0 bit transmission", $time);
+        end
+      end
+
+      $display("%tps END_OF_TRANSMISSION: DHT pulls line down for end of transmission", $time);
+      DHT_out = 1'b0;
+      repeat(5000) @(posedge clk);
+      $display("%tps END_OF_TRANSMISSION: DHT pulls line up for end of transmission", $time);
+      DHT_out = 1'b1;
+      repeat(8000) @(posedge clk);
+      $display("%tps END_OF_TRANSMISSION: DHT frees the line", $time);
+      we      = 1'b0;
+    end
+
+  end
+
+endmodule
