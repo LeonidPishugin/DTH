@@ -13,17 +13,15 @@ module dynamic_indicator (
   localparam [15:0] INDICATOR_CLK_HALF_PERIOD = 16'd49_999;
 
   //internal
-  reg                   [15:0] di_cntr_ms;
-  reg                          di_indicator_clk;
-
-  reg                    [3:0] di_cntr_indicator;
-  reg   [DIGIT_IDX_WIDTH -1:0] di_digit_idx_next;
-  reg   [DIGIT_IDX_WIDTH -1:0] di_digit_idx;
-  reg                    [3:0] di_anode_next;
-  reg                    [3:0] di_anode;
-
-  wire                   [3:0] di_digit;
-  reg                    [6:0] di_led_7seg;
+  reg                     [15:0] di_cntr_ms;
+  reg                            di_indicator_clk;
+  reg                      [3:0] di_cntr_indicator;
+  reg                      [1:0] di_digit_idx_next;
+  reg                      [1:0] di_digit_idx;
+  reg                      [3:0] di_anode_next;
+  reg                      [3:0] di_anode;
+  wire                     [3:0] di_digit;
+  reg                      [6:0] di_led_7seg;
 
   // counts 1 ms (100_000 clk ticks) and increments counter_indicator
   always @(posedge clk or negedge rst) begin
@@ -39,11 +37,12 @@ module dynamic_indicator (
     end
   end
 
-  // In order for each of the four digits to appear bright and continuously illuminated, all four digits should be driven
-  // once every 1 to 16ms, for a refresh frequency of 1KHz to 60Hz. For example, in a 60Hz refresh scheme, the entire
-  // display would be refreshed once every 16ms,
-  // and each digit would be illuminated for ¼ of
-  // the refresh cycle, or 4ms.
+  // In order for each of the four digits to appear bright 
+  // and continuously illuminated, all four digits should be driven
+  // once every 1 to 16ms, for a refresh frequency of 1KHz to 60Hz. 
+  // For example, in a 60Hz refresh scheme, the entire display would be 
+  // refreshed once every 16ms, and each digit would be illuminated 
+  // for ¼ of the refresh cycle, or 4ms.
   always @(posedge di_indicator_clk or negedge rst) begin
     if (~rst)
       di_cntr_indicator <= {4{1'b0}};
@@ -53,22 +52,22 @@ module dynamic_indicator (
 
   always @*
     case (di_cntr_indicator)
-      4'd0:
+      4'b0000:
         begin
           di_anode_next      = 4'b1110;
           di_digit_idx_next  = 0;
         end
-    4'd4:
+    4'b0100:
         begin
           di_anode_next      = 4'b1101;
           di_digit_idx_next  = 1;
         end
-    4'd8:
+    4'b1000:
         begin
           di_anode_next      = 4'b1011;
           di_digit_idx_next  = 2;
         end
-    4'd12:
+    4'b1100:
         begin
           di_anode_next      = 4'b0111;
           di_digit_idx_next  = 3;
@@ -104,11 +103,8 @@ module dynamic_indicator (
       4'h7: di_led_7seg    = 7'b0001111; // "7"
       4'h8: di_led_7seg    = 7'b0000000; // "8"
       4'h9: di_led_7seg    = 7'b0000100; // "9"
-      4'hF: di_led_7seg    = 7'b1111110; // minus
-      4'hA: di_led_7seg    = 7'b1111111; // plus (not displayed)
       default: di_led_7seg = 7'b0110110; //
     endcase
-
 
   assign led_7seg_o = di_led_7seg;
   assign anode_o    = di_anode;

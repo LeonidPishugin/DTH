@@ -10,9 +10,7 @@ module TOP
     output        error,
     output  [6:0] led_7seg_o,
     output  [3:0] anode_o,
-    output        led_dot,
-    output wire [`DECIMAL_DIGITS*8 -1:0] di_BCD
- 
+    output        led_dot
   );
 
   // 5ms
@@ -44,7 +42,7 @@ module TOP
   reg  [`DECIMAL_DIGITS*4 -1:0] BCD_T_i_reg;
   reg  [`DECIMAL_DIGITS*4 -1:0] BCD_T_d_reg;
   // Dynamic Indicator
-//  wire [`DECIMAL_DIGITS*8 -1:0] di_BCD;
+  wire [`DECIMAL_DIGITS*8 -1:0] di_BCD;
 
 
   always @(posedge clk or negedge rst)
@@ -78,7 +76,6 @@ module TOP
   bcd i_bcd_H_i (
     .clk             (clk),
     .rst             (rst),
-    .flush_i         (1'b0),
     .binary_i        (bcd_humidity_i),
     .start_i         (DHT_data_ready),
     .bcd_ready_o     (bcd_ready_H_d),
@@ -88,19 +85,16 @@ module TOP
   bcd i_bcd_H_d (
     .clk             (clk),
     .rst             (rst),
-    .flush_i         (1'b0),
     .binary_i        (bcd_humidity_d),
     .start_i         (DHT_data_ready),
     .bcd_ready_o     (bcd_ready_H_i),
     .BCD_o           (BCD_H_d)
   );
 
-  // TODO: remove flush
   // T - temp
   bcd i_bcd_T_i (
     .clk             (clk),
     .rst             (rst),
-    .flush_i         (1'b0),
     .binary_i        (bcd_temp_i),
     .start_i         (DHT_data_ready),
     .bcd_ready_o     (bcd_ready_T_i),
@@ -110,7 +104,6 @@ module TOP
   bcd i_bcd_T_d (
     .clk             (clk),
     .rst             (rst),
-    .flush_i         (1'b0),
     .binary_i        (bcd_temp_d),
     .start_i         (DHT_data_ready),
     .bcd_ready_o     (bcd_ready_T_d),
@@ -120,27 +113,22 @@ module TOP
   always @(posedge clk)
     if (bcd_ready_H_d)
      BCD_H_d_reg <= BCD_H_d;
-   //   BCD_H_d_reg <= 8'b01110011;
 
   always @(posedge clk)
     if (bcd_ready_H_i)
       BCD_H_i_reg <= BCD_H_i;
- //     BCD_H_d_reg <= 8'b10000010;
 
   always @(posedge clk)
     if (bcd_ready_T_d)
       BCD_T_d_reg <= BCD_T_d;
- //     BCD_T_d_reg <= 8'b00100111;
 
   always @(posedge clk)
     if (bcd_ready_T_i)
       BCD_T_i_reg <= BCD_T_i;
- //     BCD_T_i_reg <= 8'b01000101;
 
   // Switch to select between humidity and temperature
   // If 1 humidity, if 0 - temp
   assign di_BCD = sw_h_t_select ? {BCD_H_i_reg, BCD_H_d_reg}  : {BCD_T_i_reg, BCD_T_d_reg};
- // assign di_BCD = sw_h_t_select ? 16'b0111001110000010  : 16'b0010011101000101;
 
   dynamic_indicator i_dynamic_indicator (
     .clk             (clk),

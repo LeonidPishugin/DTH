@@ -14,10 +14,17 @@ module TOP_TB;
   wire          DHT_in;
   reg           DHT_out;
 
+ 
+ reg [7:0] DTH_tb_H_i;
+ reg [7:0] DTH_tb_H_d;
+ reg [7:0] DTH_tb_T_i;
+ reg [7:0] DTH_tb_T_d;
+ reg [7:0] DTH_tb_fin;
+ 
   reg           DHT_data_bit;
   reg     [9:0] DTH_data_checksum;
   reg    [39:0] DTH_tb_data;
-
+  
   reg     [63:0] time_a;
   reg     [63:0] time_b;
   wire    [63:0] time_diff;
@@ -67,7 +74,7 @@ module TOP_TB;
       if ((time_diff > 64'd18_000_000_000))
         $display("%tps START: MCU pulled up in correct time", $time);
       else
-        $error("START: MCU pulled up in incorrect time");
+        $error("START: MCU pulled up in incorrect time"); 
 
       repeat(2500) @(posedge clk);
       $display("%tps START_RESP: DHT takes control of the line", $time);
@@ -82,58 +89,21 @@ module TOP_TB;
       repeat(8000) @(posedge clk);
 
       $display("%tps TRANSMISSION: DHT starts transmission", $time);
-      DTH_tb_data = {40{1'b0}};
+      DTH_tb_H_i = 8'b01001001;
+      DTH_tb_H_d = 8'b01010010;
+      DTH_tb_T_i = 8'b00011011;
+      DTH_tb_T_d = 8'b00101101;
+      DTH_tb_fin = 8'b11100011;
+      DTH_tb_data = {DTH_tb_H_i, DTH_tb_H_d, DTH_tb_T_i, DTH_tb_T_d, DTH_tb_fin};
+
       for (i = 0; i < 40; i = i + 1) begin
+      
         if (i == 32)
           DTH_data_checksum = DTH_tb_data[39 -: 8] + DTH_tb_data[31 -: 8] + DTH_tb_data[23 -: 8] + DTH_tb_data[15 -: 8];
 
-   //    if (i >= 32)
-   //      DTH_tb_data = DTH_data_checksum[39-i];
-       else
-            case (i)
-            0: DHT_data_bit = 0;
-            1: DHT_data_bit = 1;
-            2: DHT_data_bit = 0;
-            3: DHT_data_bit = 0;
-            4: DHT_data_bit = 1;
-            5: DHT_data_bit = 0;
-            6: DHT_data_bit = 0;
-            7: DHT_data_bit = 1;
-            8: DHT_data_bit = 0;
-            9: DHT_data_bit = 1; 
-            10: DHT_data_bit = 0;
-            11: DHT_data_bit = 1;
-            12: DHT_data_bit = 0;
-            13: DHT_data_bit = 0;
-            14: DHT_data_bit = 1;
-            15: DHT_data_bit = 0;
-            16: DHT_data_bit = 0;
-            17: DHT_data_bit = 0;
-            18: DHT_data_bit = 0;
-            19: DHT_data_bit = 1;
-            20: DHT_data_bit = 1;
-            21: DHT_data_bit = 0; 
-            22: DHT_data_bit = 1;
-            23: DHT_data_bit = 1;
-            24: DHT_data_bit = 0;
-            25: DHT_data_bit = 0;
-            26: DHT_data_bit = 1;
-            27: DHT_data_bit = 0;
-            28: DHT_data_bit = 1;
-            29: DHT_data_bit = 1;
-            30: DHT_data_bit = 0;
-            31: DHT_data_bit = 1;
-            32: DHT_data_bit = 1;
-            33: DHT_data_bit = 1;
-            34: DHT_data_bit = 1;
-            35: DHT_data_bit = 0;
-            36: DHT_data_bit = 0;
-            37: DHT_data_bit = 0;
-            38: DHT_data_bit = 1;
-            39: DHT_data_bit = 1;
-            endcase
+      DHT_data_bit = DTH_tb_data[39-i];      
+      
 
-        DTH_tb_data[39-i] = DHT_data_bit;
         $display("%tps TRANSMISSION: data bit %d = %b", $time, i, DHT_data_bit);
         $display("%tps TRANSMISSION: DHT pulls line down before bit transmission", $time);
         DHT_out = 1'b0;

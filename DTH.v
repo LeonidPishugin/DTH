@@ -146,7 +146,7 @@ module DTH(
         dht_data_o     = 1'b1;
         if (dht_data_i & (time_cntr > 21'd5000)) begin
           time_cntr_next = TIME_CNTR_RESET;
-          state_next     = (bit_cntr == 6'd40) ? FSM_DONE : FSM_DATA_TRANSMIT_UP;
+          state_next     = (bit_cntr == 0) ? FSM_DONE : FSM_DATA_TRANSMIT_UP;
         end else begin
           time_cntr_next = time_cntr + 1'b1;
           state_next     = FSM_DATA_TRANSMIT_DOWN;
@@ -182,7 +182,7 @@ module DTH(
   end
 
 
-  assign dth_data_next = dth_data | ({{39{1'b0}}, data_bit_next} << bit_cntr);
+  assign dth_data_next = dth_data | ({{39{1'b0}}, data_bit_next} << (bit_cntr - 1'b1));
   always @(posedge clk or negedge rst)
     if (~rst) begin
       dth_data <= {40{1'b0}};
@@ -190,14 +190,14 @@ module DTH(
       dth_data <= dth_data_next;
     end
 
-  assign bit_cntr_next = (state == FSM_IDLE) ? {6{1'b0}} : (bit_cntr + 1'b1);
+  assign bit_cntr_next = (state == FSM_IDLE) ? 6'd40 : (bit_cntr - 1'b1);
   always @(posedge clk or negedge rst)
     if (~rst)
-      bit_cntr <= {6{1'b0}};
+      bit_cntr <= 6'd40;
     else if (data_bit_end | (state == FSM_IDLE))
       bit_cntr <= bit_cntr_next;
 
-  assign sum = dth_data[39 : 32] + dth_data[31:24] + dth_data[23:16] + dth_data[15:8];
+  assign sum = dth_data[39 -: 8] + dth_data[31 -: 8] + dth_data[23 -: 8] + dth_data[15 -: 8];
   always @(posedge clk or negedge rst) 
       if (~rst)
           error_reg <= 8'h0;
